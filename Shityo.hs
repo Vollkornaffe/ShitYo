@@ -1,4 +1,4 @@
-import Data.List ((!!), delete, partition, sort, nub)
+import Data.List ((!!), delete, partition, sort, nub, elemIndex)
 import Debug.Trace
 import qualified Data.Set as Set 
 import Data.Char (intToDigit)
@@ -39,9 +39,8 @@ analyse f n = let gs = filter f (allG n)
                  ++ show (length ccs) ++ " connected classes ("  ++ show (((fromIntegral (length ccs)) :: Float) / (fromIntegral (length cs))) ++ "), "
 
 type ID = [Char]
-type Layer = Int
 data O1Cl = Reg ID GM | O1cl ID GM [O1Cl] 
-data O2Cl = O2cl [(Layer,GM)]
+--data O2Cl = O2cl [(Layer,GM)]
 
 instance Show O1Cl where
     show (Reg id gm)        =  "   " ++ "R:" ++ show id ++ " : "  ++ show gm ++ "\n"
@@ -58,20 +57,23 @@ ord1 g (O1cl oldId gm _) = [O1cl (oldId ++ ['.',(intToDigit k)]) (allVK k) []
                            | k <- [0..maxDeg g gm],(allVK k) /= []]
     where allVK k' = [x | x <- gm,k'== (degree g gm x)]
 
---baum :: G -> O1Cl -> [O2Cl]
---baum g (Reg id gm) = O2cl xs
-    --where xs
-    
---main = mapM_ (putStrLn . analyse (1 `regular`)) [1..]
+knubs :: G -> [GM] -> [GM]
+knubs _ [] = []
+knubs _ (x:[]) = x:[]
+knubs g (x:xs) = [a|a<-x,not $ any (edge g a) (concat xs)] : (knubs g xs)
 
-larsson :: G
-larsson = G [[False,True,False,False,False,False,False,True,False,False,False,True,False,False,False,False,False,False,False,False],[True,False,False,True,False,True,False,False,False,True,False,False,False,False,False,False,False,False,False],[False,False,False,True,True,False,False,False,False,False,True,False,False,False,False,False,False,False],[False,True,True,False,True,True,False,False,False,False,False,False,False,False,False,False,False],[False,False,True,True,False,False,False,True,False,False,False,False,False,False,False,False],[False,True,False,True,False,False,True,True,False,False,False,False,False,False,False],[False,False,False,False,False,True,False,True,True,False,False,False,False,False],[True,False,False,False,True,True,True,False,False,False,False,False,False],[False,False,False,False,False,False,True,False,False,True,True,False],[False,True,False,False,False,False,False,False,True,False,True],[False,False,True,False,False,False,False,False,True,True],[True,False,False,False,False,False,False,False,False],[False,False,False,False,False,False,False,False],[False,False,False,False,False,False,False],[False,False,False,False,False,False],[False,False,False,False,False],[False,False,False,False],[False,False,False],[False,False],[False]]
+vView :: G -> GM -> Int -> [GM]
+vView g gm n = filterLayers [] ([n]:(f [n]))
+    where f xs = if (xs == gm)
+                 then []
+                 else a : (f a)
+                    where a = [x|x<-gm,any (edge g x) xs]
 
-             
-             
-             
-             
-             
+filterLayers :: GM -> [GM] -> [GM]
+filterLayers _ [] = []
+filterLayers ban (x:xs) = fEd : (filterLayers (ban ++ fEd) xs)
+    where fEd = [a | a<-x, not (a `elem` ban)]
+   
 readGraph :: FilePath -> IO [[Bool]]
 readGraph f = parseGraph `fmap` readFile f
 
@@ -85,8 +87,28 @@ listToMatrix :: [(Int, Int)] -> [[Bool]]
 listToMatrix es = let n = maximum (map fst es ++ map snd es)
                       entry i j = (i,j) `elem` es ||
                                   (j,i) `elem` es
-                      row i = map (entry i) [0 .. n-(i+1)]
+                      row i = map (entry i) [(i+1) .. n]
                   in map row [0 .. n-1]
 
 parseGraph :: String -> [[Bool]]
 parseGraph s = listToMatrix $ step Nothing (words s)
+
+testG = G [[True,True,True,False,False,False,False,False,False,False,False,False,False,False,False,False,False,False,False,False,False,False,False],[True,False,True,False,False,False,False,False,False,False,False,False,False,False,False,False,False,False,False,False,False,False],[False,False,True,False,False,False,False,False,False,False,False,False,False,False,False,False,False,False,False,False,False],[True,True,False,False,False,False,False,False,False,False,False,False,False,False,False,False,False,False,False,False],[True,False,False,False,False,False,False,False,False,False,False,False,False,False,False,False,False,False,False],[False,False,False,False,False,True,False,False,False,False,False,True,False,False,False,False,False,True],[True,True,True,False,False,False,False,False,False,False,False,False,False,False,False,False,False],[True,False,True,False,False,False,False,False,False,False,False,False,False,False,False,False],[False,False,True,False,False,False,False,False,False,False,False,False,False,False,False],[True,True,False,False,False,False,False,False,False,False,False,False,False,False],[True,False,False,False,False,False,False,False,False,False,False,False,False],[False,False,False,False,False,True,False,False,False,False,False,True],[True,True,True,False,False,False,False,False,False,False,False],[True,False,True,False,False,False,False,False,False,False],[False,False,True,False,False,False,False,False,False],[True,True,False,False,False,False,False,False],[True,False,False,False,False,False,False],[False,False,False,False,False,True],[True,True,True,False,False],[True,False,True,False],[False,False,True],[True,True],[True]]
+
+main = do
+    test <- (readGraph "test.gml")
+    --testG = G test
+    putStrLn "Graph succ loaded..."
+
+data G' = G' GM G deriving Show 
+
+
+projectGraph :: G' -> GM -> G'
+projectGraph (G' gm g) newGm = G' newGm $ G (listToMatrix newE)
+    where a x = elemIndex (newGm !! x) gm 
+          e Nothing _ = False
+          e _ Nothing = False
+          e (Just x) (Just y) = edge g x y
+          newV = [0 .. (length newGm)-1]
+          newE = [(x,y) | x<-newV,y<-newV,e (a x) (a y)]
+
