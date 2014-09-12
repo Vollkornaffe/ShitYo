@@ -6,19 +6,6 @@ import Data.Char (intToDigit)
 import Debug.Trace
 import UndirectedGraph
 
-type Bijection = [Int]
-
-bijections :: Int -> [Bijection]
-bijections n = bs n [0..n-1]
-    where  bs 0 _  = [[]]
-           bs n xs = concat $ map (\x -> map (x:) (bs (n-1) (delete x xs))) xs
-           
-iso :: G -> G -> Bool
-iso g1@(G e1) g2@(G e2) | num_v g1 /= num_v g2 = False
-                        | otherwise = any c (bijections (num_v g1))
-    where c :: Bijection -> Bool
-          c f = all (\(a, b) -> (edge g1 a b) == (edge g2 (f !! a) (f !! b))) [(a, b) | a  <- [0..num_v g1 - 1], b <- [0..num_v g1 - 1]]
-          
 splitOffFirstGroup :: (a -> a -> Bool) -> [a] -> ([a],[a])
 splitOffFirstGroup equal xs@(x:_) = partition (equal x) xs
 splitOffFirstGroup _     []       = ([],[])
@@ -57,22 +44,6 @@ ord1 g (O1cl oldId gm _) = [O1cl (oldId ++ ['.',(intToDigit k)]) (allVK k) []
                            | k <- [0..maxDeg g gm],(allVK k) /= []]
     where allVK k' = [x | x <- gm,k'== (degree g gm x)]
 
-knubs :: G -> [GM] -> [GM]
-knubs _ [] = []
-knubs _ (x:[]) = x:[]
-knubs g (x:xs) = [a|a<-x,not $ any (edge g a) (concat xs)] : (knubs g xs)
-
-vView :: G -> GM -> Int -> [GM]
-vView g gm n = filterLayers [] ([n]:(f [n]))
-    where f xs = if (xs == gm)
-                 then []
-                 else a : (f a)
-                    where a = [x|x<-gm,any (edge g x) xs]
-
-filterLayers :: GM -> [GM] -> [GM]
-filterLayers _ [] = []
-filterLayers ban (x:xs) = fEd : (filterLayers (ban ++ fEd) xs)
-    where fEd = [a | a<-x, not (a `elem` ban)]
    
 readGraph :: FilePath -> IO [[Bool]]
 readGraph f = parseGraph `fmap` readFile f
@@ -93,22 +64,11 @@ listToMatrix es = let n = maximum (map fst es ++ map snd es)
 parseGraph :: String -> [[Bool]]
 parseGraph s = listToMatrix $ step Nothing (words s)
 
-testG = G [[True,True,True,False,False,False,False,False,False,False,False,False,False,False,False,False,False,False,False,False,False,False,False],[True,False,True,False,False,False,False,False,False,False,False,False,False,False,False,False,False,False,False,False,False,False],[False,False,True,False,False,False,False,False,False,False,False,False,False,False,False,False,False,False,False,False,False],[True,True,False,False,False,False,False,False,False,False,False,False,False,False,False,False,False,False,False,False],[True,False,False,False,False,False,False,False,False,False,False,False,False,False,False,False,False,False,False],[False,False,False,False,False,True,False,False,False,False,False,True,False,False,False,False,False,True],[True,True,True,False,False,False,False,False,False,False,False,False,False,False,False,False,False],[True,False,True,False,False,False,False,False,False,False,False,False,False,False,False,False],[False,False,True,False,False,False,False,False,False,False,False,False,False,False,False],[True,True,False,False,False,False,False,False,False,False,False,False,False,False],[True,False,False,False,False,False,False,False,False,False,False,False,False],[False,False,False,False,False,True,False,False,False,False,False,True],[True,True,True,False,False,False,False,False,False,False,False],[True,False,True,False,False,False,False,False,False,False],[False,False,True,False,False,False,False,False,False],[True,True,False,False,False,False,False,False],[True,False,False,False,False,False,False],[False,False,False,False,False,True],[True,True,True,False,False],[True,False,True,False],[False,False,True],[True,True],[True]]
 
 main = do
     test <- (readGraph "test.gml")
     --testG = G test
     putStrLn "Graph succ loaded..."
 
-data G' = G' GM G deriving Show 
 
-
-projectGraph :: G' -> GM -> G'
-projectGraph (G' gm g) newGm = G' newGm $ G (listToMatrix newE)
-    where a x = elemIndex (newGm !! x) gm 
-          e Nothing _ = False
-          e _ Nothing = False
-          e (Just x) (Just y) = edge g x y
-          newV = [0 .. (length newGm)-1]
-          newE = [(x,y) | x<-newV,y<-newV,e (a x) (a y)]
 
